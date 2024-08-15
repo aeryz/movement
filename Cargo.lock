@@ -8608,7 +8608,12 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "aptos-api",
+ "aptos-types",
+ "hex",
+ "move-core-types",
  "poem",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -8619,9 +8624,11 @@ name = "movement-types"
 version = "0.3.0"
 dependencies = [
  "anyhow",
+ "aptos-crypto",
  "aptos-types",
  "bcs 0.1.4",
  "serde",
+ "serde_json",
  "serde_with",
  "sha2 0.10.8",
 ]

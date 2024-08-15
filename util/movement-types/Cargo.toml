@@ -19,6 +19,10 @@ serde_with = { workspace = true }
 # derivative = { workspace = true }
 anyhow = { workspace = true }
 sha2 = { workspace = true }
+serde_json = { workspace = true }
+aptos-crypto = { workspace = true }
+
+
 
 [lints]
 workspace = true

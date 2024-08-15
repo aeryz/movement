@@ -201,3 +201,15 @@ pub enum BlockCommitmentEvent {
 	Accepted(BlockCommitment),
 	Rejected { height: u64, reason: BlockCommitmentRejectionReason },
 }
+
+#[test]
+fn test_tx() {
+	use aptos_crypto::hash::CryptoHash;
+	use aptos_types::proof::TransactionInfoWithProof;
+
+	let txs_with_proof: TransactionInfoWithProof = serde_json::from_str(
+        r#"{"ledger_info_to_transaction_info_proof":{"siblings":["38ebb945a351a6701658fe7f5398133ad62777754e3ea44834da0d1e75a87e10","cdb6d7b047d18fdf13f27f13cf1077bc03b1e93b283feeecec55e31176a1f328","835449fd22e856b1f0fdb76d1ff3e493b7c0f8f43b9f66690b4d4d90a0c424ac","af625d6b7281a633d6bdf5cc144186e1ff094e9953165fd1516ab16544776631","d00d20a6fb6874e4c36e5690a4069b94a41f1ae197ae8769d2207f668f016c1c","3c929e62e334cb0ca8dbfd955899aa2bb09e6cc2ce053261689bb69d31c133f4","819a3f1ed1827d33e60b91da7f44736b4c583faec52b8867f45a97c1803b2b66","ea3756c694f6ed5782c91640e5e821604fa39cc55ff85691949d5c93f5c9fb95"],"phantom":null},"transaction_info":{"V0":{"gas_used":0,"status":"Success","transaction_hash":"e77d9016e431a2d367c513ebaf1bc39e291dc9589728e9bf1495fc573cb085ca","event_root_hash":"414343554d554c41544f525f504c414345484f4c4445525f4841534800000000","state_change_hash":"afb6e14fe47d850fd0a7395bcfb997ffacf4715e0f895cc162c218e4a7564bc6","state_checkpoint_hash":"02388da3aee85236d64e272fec0b1a6fcd4962986327971faef9ee2951a4ad6a","state_cemetery_hash":null}}}"#,
+    ).unwrap();
+
+	println!("{}", txs_with_proof.transaction_info.hash());
+}

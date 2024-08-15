@@ -1,5 +1,12 @@
 use anyhow::Error;
 use aptos_api::Context;
+use aptos_types::account_address::AccountAddress;
+use aptos_types::account_config::AccountResource;
+use aptos_types::proof::TransactionInfoWithProof;
+use aptos_types::state_proof::StateProof;
+use aptos_types::state_store::state_key::StateKey;
+use aptos_types::state_store::table::TableHandle;
+use move_core_types::move_resource::MoveStructType;
 use poem::listener::TcpListener;
 use poem::{
 	get, handler,
@@ -23,15 +30,15 @@ impl MovementRest {
 	pub const MOVEMENT_REST_ENV_VAR: &'static str = "MOVEMENT_REST_URL";
 
 	pub fn try_from_env(context: Option<Arc<Context>>) -> Result<Self, Error> {
-		let url = env::var(Self::MOVEMENT_REST_ENV_VAR)
-			.unwrap_or_else(|_| "http://0.0.0.0:30832".to_string());
+		let url =
+			env::var(Self::MOVEMENT_REST_ENV_VAR).unwrap_or_else(|_| "0.0.0.0:30832".to_string());
 		Ok(Self { url, context })
 	}
 
 	pub async fn run_service(&self) -> Result<(), Error> {
 		info!("Starting movement rest service at {}", self.url);
 		let movement_rest = self.create_routes();
-		Server::new(TcpListener::bind(&self.url)).run(movement_rest).await?;
+		Server::new(TcpListener::bind(&self.url)).run(movement_rest).await.unwrap();
 		Ok(())
 	}
 
@@ -39,8 +46,11 @@ impl MovementRest {
 		Route::new()
 			.at("/health", get(health))
 			.at("/movement/v1/state-root-hash/:blockheight", get(state_root_hash))
+			.at("/movement/v1/resource-proof/:key/:addr/:blockheight", get(resource_proof))
+			.at("/movement/v1/state-proof/:blockheight", get(state_proof))
+			.at("/movement/v1/account-proof/:addr/:blockheight", get(account_proof))
 			.at("movement/v1/richard", get(richard))
-			.data(self.context.clone())
+			.data(self.context.as_ref().unwrap().clone())
 			.with(Tracing)
 	}
 }
@@ -74,7 +84,60 @@ pub async fn state_root_hash(
 		.transaction_info
 		.state_checkpoint_hash()
 		.ok_or_else(|| anyhow::anyhow!("No state root hash found"))?;
-	Ok(state_root_hash.to_string().into_response())
+	Ok(state_root_hash.to_hex_literal().into_response())
+}
+
+#[handler]
+pub async fn resource_proof(
+	Path((key, addr, blockheight)): Path<(String, AccountAddress, u64)>,
+	context: Data<&Arc<Context>>,
+) -> Result<Response, anyhow::Error> {
+	let (_, end_version, _) = context.db.get_block_info_by_height(blockheight)?;
+
+	let key = hex::decode(&key)?;
+	let key = StateKey::table_item(&TableHandle(addr), &key);
+
+	let resp = context.db.get_state_value_with_proof_by_version(&key, end_version)?;
+
+	Ok(serde_json::to_string(&resp.1)?.into_response())
+}
+
+#[handler]
+pub async fn state_proof(
+	Path(blockheight): Path<u64>,
+	context: Data<&Arc<Context>>,
+) -> Result<Response, anyhow::Error> {
+	#[derive(serde::Serialize, serde::Deserialize)]
+	struct StateProofResponse {
+		state_proof: StateProof,
+		tx_proof: TransactionInfoWithProof,
+	}
+
+	let latest_ledger_info = context.db.get_latest_ledger_info()?;
+	let (_, end_version, _) = context.db.get_block_info_by_height(blockheight)?;
+
+	let tx_proof = context
+		.db
+		.get_transaction_by_version(end_version, latest_ledger_info.ledger_info().version(), false)?
+		.proof;
+
+	let state_proof = context.db.get_state_proof(end_version)?;
+
+	Ok(serde_json::to_string(&StateProofResponse { state_proof, tx_proof })?.into_response())
+}
+
+#[handler]
+pub async fn account_proof(
+	Path((addr, blockheight)): Path<(AccountAddress, u64)>,
+	context: Data<&Arc<Context>>,
+) -> Result<Response, anyhow::Error> {
+	let (_, end_version, _) = context.db.get_block_info_by_height(blockheight)?;
+
+	let key = StateKey::resource(&addr, &<AccountResource as MoveStructType>::struct_tag())?;
+
+	let resp = context.db.get_state_value_with_proof_by_version(&key, end_version)?;
+
+	Ok(format!("{resp:?}").into_response())
 }
 
 #[cfg(test)]

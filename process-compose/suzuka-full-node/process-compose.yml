@@ -52,7 +52,7 @@ processes:
     
   suzuka-full-node:
     command: |
-      RUST_LOG=aptos-indexer=debug suzuka-full-node
+      RUST_LOG=info suzuka-full-node
     depends_on:
       m1-da-light-node:
         condition: process_healthy
