@@ -2,6 +2,10 @@ use anyhow::Error;
 use aptos_api::Context;
 use aptos_types::account_address::AccountAddress;
 use aptos_types::account_config::AccountResource;
+use aptos_types::aggregate_signature::AggregateSignature;
+use aptos_types::block_info::BlockInfo;
+use aptos_types::epoch_change::EpochChangeProof;
+use aptos_types::ledger_info::{LedgerInfo, LedgerInfoWithSignatures};
 use aptos_types::proof::TransactionInfoWithProof;
 use aptos_types::state_proof::StateProof;
 use aptos_types::state_store::state_key::StateKey;
@@ -109,21 +113,41 @@ pub async fn state_proof(
 ) -> Result<Response, anyhow::Error> {
 	#[derive(serde::Serialize, serde::Deserialize)]
 	struct StateProofResponse {
+		tx_index: u64,
 		state_proof: StateProof,
 		tx_proof: TransactionInfoWithProof,
 	}
 
-	let latest_ledger_info = context.db.get_latest_ledger_info()?;
-	let (_, end_version, _) = context.db.get_block_info_by_height(blockheight)?;
+	let (_, end_version, block_event) = context.db.get_block_info_by_height(blockheight)?;
 
-	let tx_proof = context
-		.db
-		.get_transaction_by_version(end_version, latest_ledger_info.ledger_info().version(), false)?
-		.proof;
+	let mut epoch_state = context.db.get_latest_epoch_state()?;
+	epoch_state.epoch = block_event.epoch();
 
-	let state_proof = context.db.get_state_proof(end_version)?;
+	let block_info = BlockInfo::new(
+		block_event.epoch(),
+		block_event.round(),
+		block_event.hash()?,
+		context.db.get_accumulator_root_hash(end_version)?,
+		end_version,
+		block_event.timestamp,
+		Some(epoch_state),
+	);
 
-	Ok(serde_json::to_string(&StateProofResponse { state_proof, tx_proof })?.into_response())
+	let ledger_info = LedgerInfoWithSignatures::new(
+		LedgerInfo::new(block_info, Default::default()),
+		AggregateSignature::empty(),
+	);
+
+	let state_proof = StateProof::new(ledger_info, EpochChangeProof::new(vec![], false));
+
+	let tx = context.db.get_transaction_by_version(end_version, end_version, false)?;
+
+	let tx_proof = tx.proof;
+
+	let tx_index = tx.version;
+
+	Ok(serde_json::to_string(&StateProofResponse { tx_index, state_proof, tx_proof })?
+		.into_response())
 }
 
 #[handler]
