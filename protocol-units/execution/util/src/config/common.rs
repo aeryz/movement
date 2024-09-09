@@ -110,7 +110,7 @@ env_default!(
 	default_postgres_connection_string,
 	"INDEXER_PROCESSOR_POSTGRES_CONNECTION_STRING",
 	String,
-	"postgresql://postgres:password@localhost:5432".to_string()
+	"postgres://postgres:postgrespassword@127.0.0.1:5432/default".to_string()
 );
 
 env_default!(

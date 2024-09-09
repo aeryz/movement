@@ -41,14 +41,14 @@ processes:
       exec:
         command: grpcurl -plaintext 0.0.0.0:30730 list
 
-  postgres:
-    command: |
-      ./scripts/postgres/start-dev
+  # postgres:
+  #   command: |
+  #     ./scripts/postgres/start-dev
 
-    readiness_probe:
-      initial_delay_seconds: 10
-      exec:
-        command: echo "true"
+  #   readiness_probe:
+  #     initial_delay_seconds: 10
+  #     exec:
+  #       command: echo "true"
     
   suzuka-full-node:
     command: |
@@ -58,8 +58,8 @@ processes:
     depends_on:
       m1-da-light-node:
         condition: process_healthy
-      postgres:
-        condition: process_healthy
+      # postgres:
+      #   condition: process_healthy
     readiness_probe:
       initial_delay_seconds: 10
       exec:
